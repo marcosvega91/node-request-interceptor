@@ -63,12 +63,15 @@ export interface InterceptorApi {
   restore(): void
 }
 
+let interceptosCounter = 0
+
 export function createInterceptor(options: InterceptorOptions): InterceptorApi {
   const observer = new StrictEventEmitter<InterceptorEventsMap>()
   let cleanupFns: InterceptorCleanupFn[] = []
 
   return {
     apply() {
+      interceptosCounter++
       cleanupFns = options.modules.map((interceptor) => {
         return interceptor(observer, options.resolver)
       })
@@ -78,14 +81,16 @@ export function createInterceptor(options: InterceptorOptions): InterceptorApi {
     },
     restore() {
       observer.removeAllListeners()
-
+      interceptosCounter--
       if (cleanupFns.length === 0) {
         throw new Error(
           `Failed to restore patched modules: no patches found. Did you forget to run ".apply()"?`
         )
       }
 
-      cleanupFns.forEach((restore) => restore())
+      if (interceptosCounter === 0) {
+        cleanupFns.forEach((restore) => restore())
+      }
     },
   }
 }
